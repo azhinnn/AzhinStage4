@@ -1,0 +1,263 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider     = "cockroachdb"
+    url          = env("DATABASE_URL")
+    relationMode = "prisma"
+}
+
+model admin {
+    id             Int      @id @unique @default(sequence(maxValue: 2147483647))
+    name           String
+    email          String   @unique
+    phone          String   @unique @db.String(11)
+    hashedPassword String   @db.String(64)
+    image          String?
+    isActive       Boolean  @default(false)
+    createdAt      DateTime @default(now())
+}
+
+model appointment {
+    id           Int               @id @unique @default(sequence(maxValue: 2147483647))
+    date         DateTime          @default(now())
+    doctorId     Int
+    patientId    Int
+    doctorTypeId Int
+    status       AppointmentStatus @default(checkedIn)
+    Patient      patient           @relation(fields: [patientId], references: [id])
+    Doctor       doctor            @relation(fields: [doctorId], references: [id])
+    DoctorType   doctortype        @relation(fields: [doctorTypeId], references: [id])
+    Visit        visit[]
+    Transaction  transaction[]
+    discountId   Int?
+    Discount     discount?         @relation(fields: [discountId], references: [id])
+
+    @@index([doctorTypeId])
+    @@index([doctorId])
+    @@index([patientId])
+    @@index([discountId])
+}
+
+model visit {
+    id            Int         @id @unique @default(sequence(maxValue: 2147483647))
+    date          DateTime
+    updatedAt     DateTime    @default(now())
+    appointmentId Int
+    note          String?
+    image         String?
+    status        VisitStatus @default(checkedIn)
+    Appointment   appointment @relation(fields: [appointmentId], references: [id])
+
+    @@index([appointmentId])
+}
+
+model doctor {
+    id             Int           @id @unique @default(sequence(maxValue: 2147483647))
+    name           String
+    email          String        @unique
+    phone          String        @unique @db.String(11)
+    gender         Gender
+    cityId         Int?
+    City           city?         @relation(fields: [cityId], references: [id])
+    street         String?
+    hashedPassword String        @db.String(64)
+    image          String?
+    isActive       Boolean       @default(false)
+    createdAt      DateTime      @default(now())
+    doctorFieldId  Int
+    Waiting        waiting[]
+    Appointment    appointment[]
+    DoctorField    doctorfield   @relation(fields: [doctorFieldId], references: [id])
+    DoctorType     doctortype[]
+    Discount       discount[]
+
+    @@index([doctorFieldId])
+    @@index([cityId])
+}
+
+model patient {
+    id             Int           @id @unique @default(sequence(maxValue: 2147483647))
+    name           String
+    email          String?
+    phone          String
+    age            Int
+    gender         Gender
+    image          String?
+    createdAt      DateTime      @default(now())
+    note           String?
+    cityId         Int?
+    City           city?         @relation(fields: [cityId], references: [id])
+    street         String?
+    hashedPassword String        @db.String(64)
+    isActive       Boolean       @default(false)
+    Appointment    appointment[]
+    Waiting        waiting[]
+    verified       DateTime?     @default(now())
+
+    @@index([cityId])
+}
+
+model secretary {
+    id             Int      @id @unique @default(sequence(maxValue: 2147483647))
+    name           String
+    email          String
+    phone          String
+    gender         Gender
+    createdAt      DateTime @default(now())
+    image          String?
+    hashedPassword String   @db.String(64)
+    isActive       Boolean  @default(false)
+}
+
+enum TransactionType {
+    payment
+    payback
+}
+
+model transaction {
+    id            Int             @id @unique @default(sequence(maxValue: 2147483647))
+    amount        Float
+    date          DateTime
+    appointmentId Int
+    type          TransactionType @default(payment)
+    Appointment   appointment     @relation(fields: [appointmentId], references: [id])
+
+    @@index([appointmentId])
+}
+
+model doctorfield {
+    id         Int          @id @unique(map: "doctorField_id_key") @default(sequence(maxValue: 2147483647))
+    name       String
+    Doctor     doctor[]
+    DoctorType doctortype[]
+    Waiting    waiting[]
+    createdAt  DateTime     @default(now())
+}
+
+model doctortype {
+    id            Int           @id @unique @default(sequence(maxValue: 2147483647))
+    name          String
+    price         Float
+    doctorFieldId Int
+    Doctor        doctor[]
+    DoctorField   doctorfield   @relation(fields: [doctorFieldId], references: [id])
+    Appointment   appointment[]
+    Discount      discount[]
+    Waiting       waiting[]
+    createdAt     DateTime      @default(now())
+
+    @@index([doctorFieldId])
+}
+
+enum AppointmentStatus {
+    checkedIn
+    completed
+    cancelled
+}
+
+enum VisitStatus {
+    checkedIn
+    notArived
+    arrived
+    cancelled
+    completed
+}
+
+enum Gender {
+    male
+    female
+    notSelected
+}
+
+model discount {
+    id           Int           @id @default(sequence(maxValue: 2147483647))
+    createdAt    DateTime      @default(now())
+    name         String
+    code         String
+    percentage   Float
+    startDate    DateTime
+    endDate      DateTime
+    doctorId     Int
+    Doctor       doctor        @relation(fields: [doctorId], references: [id])
+    doctortypeId Int?
+    Doctortype   doctortype?   @relation(fields: [doctortypeId], references: [id])
+    Appointment  appointment[]
+
+    @@index([doctortypeId])
+    @@index([doctorId])
+}
+
+model currency {
+    id        Int      @id @default(sequence(maxValue: 2147483647))
+    price     Float
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now())
+}
+
+model waiting {
+    id            Int           @id @unique @default(sequence(maxValue: 2147483647))
+    createdAt     DateTime      @default(now())
+    updatedAt     DateTime      @default(now())
+    patientId     Int
+    doctorId      Int
+    doctorTypeId  Int
+    doctorFieldId Int
+    status        WaitingStatus
+    Patient       patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+    Doctor        doctor        @relation(fields: [doctorId], references: [id])
+    DoctorType    doctortype    @relation(fields: [doctorTypeId], references: [id])
+    DoctorField   doctorfield   @relation(fields: [doctorFieldId], references: [id])
+
+    @@index([patientId])
+    @@index([doctorId])
+    @@index([doctorTypeId])
+    @@index([doctorFieldId])
+}
+
+enum WaitingStatus {
+    pending
+    accepted
+    rejected
+}
+
+model city {
+    id        Int       @id @default(sequence(maxValue: 2147483647))
+    name      String
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now())
+    Patient   patient[]
+    Doctor    doctor[]
+}
+
+model company {
+    id          Int      @id @default(sequence(maxValue: 2147483647))
+    name        String
+    description String?
+    image       String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @default(now())
+}
+
+model verifyToken {
+    id        String   @id @default(uuid())
+    token     String
+    email     String
+    expiredAt DateTime
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now())
+
+    @@unique([token, email])
+}
+
+model resetPasswordToken {
+    id        String   @id @default(uuid())
+    token     String
+    email     String
+    expiredAt DateTime
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now())
+
+    @@unique([token, email])
+}
